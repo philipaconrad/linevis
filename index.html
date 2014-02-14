@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="description" content="See your files, line-by-line.">
+      
+    <title>LineVis &mdash; See your files, line-by-line</title>
+
+
+    <!--Google Font: Cabin-->
+    <link href='http://fonts.googleapis.com/css?family=Cabin:400,400italic,600,600italic' rel='stylesheet' type='text/css'>
+
+    <!--HTML5 Reset-->
+    <link href='reset.css' rel='stylesheet' type='text/css'>
+
+    <!--favicon.ico-->
+    <link rel="shortcut icon" href="http://philipaconrad.github.io/linevis/favicon.ico" />
+    
+    <link rel="canonical" href="http://philipaconrad.github.io/linevis" />
+	<meta name="robots" content="index, follow" />
+
+    <!--Inline Style-->
+    <style type="text/css">
+        body {
+            color: #444;
+            background-color: #eee;
+            font-family: 'Cabin', sans-serif;
+        }
+        .invis { color: #666; text-decoration: none; }
+        .invis:hover { color: #666; text-decoration: none; }
+        .banner {
+            width: 100%;
+            padding-left: 20px;
+            padding-top: 15px;
+            padding-bottom: 15px;
+            color: #666;
+            background-color: #ccc;
+        }
+        .instructions {
+            width: 350px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 20pt; font-weight: 600; }
+        h3 { font-size: 18pt; padding-bottom:5px;}
+        p  { font-size: 12pt; font-weight: 400; }
+        #logo { float: left; margin-right: 10px; }
+        #drop_zone {
+            width: 350px;
+            margin: 0 auto;
+            height: 350px;
+            margin-bottom: 15px;
+            
+            border: 2px dashed #bbb;
+            -moz-border-radius: 5px;
+            -webkit-border-radius: 5px;
+            border-radius: 5px;
+            padding: 25px;
+            text-align: center;
+            font-size: 20pt;
+            color: #bbb;
+        }
+        #list {
+            width: 350px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        canvas {
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 15px;
+            margin-bottom: 85px; /* 15px + 70px*/
+            display: block;
+            width: 350px;
+            height: 10px;
+        }
+        #helper-text {
+            margin-right:20px;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            padding-left: 20px;
+            padding-top: 15px;
+            padding-bottom: 15px;
+            background-color: #666;
+            color: #ccc;
+            text-align: center;
+        }
+        a { color: #fff; text-decoration: none; }
+        a:hover { color: #ff6600; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <a class="invis" href="http://philipaconrad.github.io/linevis">
+    <div class="banner">
+        <img id="logo" src="logo_32x32.png" /><h1>LineVis &mdash; <em>See your files, line-by-line.</em></h1>
+        <a href="https://github.com/philipaconrad/linevis"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://github-camo.global.ssl.fastly.net/38ef81f8aca64bb9a64448d0d70f1308ef5341ab/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6461726b626c75655f3132313632312e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png"></a>
+        <em>Code released under the <a href="http://choosealicense.com/licenses/apache/">Apache v2 License.</a></em>
+    </div>
+    </a>
+
+    <br />
+    
+    <div class="instructions">
+        <h3>Instructions</h3>
+        <p>Use the drag-n-drop box below to generate visualizations of the lines of text in your files.</p>
+    </div>
+
+    <br />
+
+<!--Drag-n-drop zone-->
+<div id="drop_zone">Drop files here</div>
+<output id="list"></output>
+
+<!--Canvas for drawing the image-->
+<div style="position:relative;width:100%;">
+<canvas id="canvas-vis">Your browser doesn't seem to support canvas.</canvas>
+<p style="position:absolute;right:0;top:0px;" id="helper-text"></p>
+</div>
+
+<!--The Main Script ( Portions derived from http://www.html5rocks.com/en/tutorials/file/dndfiles/ )-->
+<script type="text/javascript">
+    function handleFileSelect(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+
+        var files = evt.dataTransfer.files; // FileList object.
+
+        // files is a FileList of File objects. List some properties.
+        var output = [];
+        //Currently only spits out stuff for 1 file. Need to figure out insertion of multiple 
+        //canvas elements.
+        f = files[0];
+        output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+                    f.size, ' bytes, last modified: ',
+                    f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
+                    '</li>');
+        var reader = new FileReader();
+        reader.onload = function (event) {
+            var content = event.target.result;
+            //document.getElementById('list').innerHTML = '<ul><pre>' + content + '</pre></ul>';
+            var lines = content.split('\n');
+            var maxlen = 0;
+            for (var i = 0; i < lines.length; i++) {
+                var len = lines[i].length;
+                if (len > maxlen) { maxlen = len; }
+            }
+            //Setup canvas, set x and y dimensions, setup byte array. Queue up pixels to copy.
+            var canvas = document.getElementById('canvas-vis');
+            var ctx = canvas.getContext('2d');
+            var black_px = [0, 0, 0, 255];
+            var white_px = [255, 255, 255, 255];
+            var x = maxlen;
+            var y = lines.length;
+            canvas.width = x;
+            canvas.height = y;
+            canvas.style.width = x + 'px';
+            canvas.style.height = y + 'px';
+            var imgData = ctx.createImageData(x, y);
+            var data = imgData.data;
+            var pixelData = []; //Array to hold raw bytes in
+            for (var i = 0; i < y; i++) {
+                var curLine = lines[i];
+                var imgRow = [];
+                //gen black and white pixels:
+                for (var j = 0; j < curLine.length; j++) {
+                    if (curLine[j].charCodeAt() > 32) { imgRow = imgRow.concat(black_px); }
+                    else { imgRow = imgRow.concat(white_px); }
+                }
+                //fill in remainder of line with white pixels:
+                if (curLine.length < maxlen) {
+                    var remaining = maxlen - curLine.length;
+                    for (var j = 0; j < remaining; j++) {
+                        imgRow = imgRow.concat(white_px);
+                    }
+                }
+                pixelData = pixelData.concat(imgRow);
+            }
+            // copy img byte-per-byte into our ImageData
+            for (var i = 0, len = x * y * 4; i < len; i++) {
+                data[i] = pixelData[i];
+            }
+            ctx.putImageData(imgData, 0, 0);
+        };
+        reader.readAsText(files[0]);
+        document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
+        document.getElementById('helper-text').innerHTML = '<em>To save this image, just right-click on it, then select "Save Image As".</em>';
+    }
+
+    function handleDragOver(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+    }
+
+    // Setup the dnd listeners.
+    var dropZone = document.getElementById('drop_zone');
+    dropZone.addEventListener('dragover', handleDragOver, false);
+    dropZone.addEventListener('drop', handleFileSelect, false);
+</script>
+
+<!--Save Image As-->
+<script type="text/javascript">
+var canvas = document.getElementById("canvas-vis");
+var img    = canvas.toDataURL("image/png");
+</script>
+
+<!--Footer text, citations, etc.-->
+<div class="footer">
+Designed and built by <a href="https://github.com/philipaconrad">Philip Conrad</a> over a weekend.<br/>Icons courtesy of <a href="http://iconmonstr.com/">iconmonster</a>.
+</div>
+
+</body>
+</html>
+
+
+
+
+
