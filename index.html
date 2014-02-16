@@ -162,15 +162,25 @@
             //document.getElementById('list').innerHTML = '<ul><pre>' + content + '</pre></ul>';
             var lines = content.split('\n');
             var maxlen = 0;
+
             for (var i = 0; i < lines.length; i++) {
                 var len = lines[i].length;
                 if (len > maxlen) { maxlen = len; }
             }
-            //Setup canvas, set x and y dimensions, setup byte array. Queue up pixels to copy.
+
+            
+            //Originally, I concatenated each pixel into a row array, then 
+            //concatenated that to the pixelData array.
+            //The new approach preallocates the pixelData array, setting all 
+            //pixels to white. The black pixels are then updated in-place.
+            //This code went from 13892 ms -> 74 ms on a 43.2 kb C file I was 
+            //using for stress tests. That's about a 140x speedup.
+
+            //Setup canvas, set x and y dimensions, setup byte array:
             var canvas = document.getElementById('canvas-vis');
             var ctx = canvas.getContext('2d');
-            var black_px = [0, 0, 0, 255];
-            var white_px = [255, 255, 255, 255];
+            //var black_px = [0, 0, 0, 255];
+            //var white_px = [255, 255, 255, 255];
             var x = maxlen;
             var y = lines.length;
             canvas.width = x;
@@ -179,28 +189,29 @@
             canvas.style.height = y + 'px';
             var imgData = ctx.createImageData(x, y);
             var data = imgData.data;
-            var pixelData = []; //Array to hold raw bytes in
+            var pixelData = []; //Array to hold pixel data in.
+
+            //Fill in all white pixels:
+            for (var i = 0, len = x * y * 4; i < len; i++) {
+                pixelData[i] = 255;
+            }
+            //Fill in only the black pixels (set R G B to 0, but not A):
             for (var i = 0; i < y; i++) {
                 var curLine = lines[i];
-                var imgRow = [];
-                //gen black and white pixels:
                 for (var j = 0; j < curLine.length; j++) {
-                    if (curLine[j].charCodeAt() > 32) { imgRow = imgRow.concat(black_px); }
-                    else { imgRow = imgRow.concat(white_px); }
-                }
-                //fill in remainder of line with white pixels:
-                if (curLine.length < maxlen) {
-                    var remaining = maxlen - curLine.length;
-                    for (var j = 0; j < remaining; j++) {
-                        imgRow = imgRow.concat(white_px);
+                    if (curLine[j].charCodeAt() > 32) {
+                        pixelData[(i * x * 4) + (j * 4) + 0] = 0;
+                        pixelData[(i * x * 4) + (j * 4) + 1] = 0;
+                        pixelData[(i * x * 4) + (j * 4) + 2] = 0;
                     }
                 }
-                pixelData = pixelData.concat(imgRow);
             }
-            // copy img byte-per-byte into our ImageData
+
+            //Copy the pixelData array byte-per-byte into our ImageData array:
             for (var i = 0, len = x * y * 4; i < len; i++) {
                 data[i] = pixelData[i];
             }
+
             ctx.putImageData(imgData, 0, 0);
         };
         reader.readAsText(files[0]);
